@@ -162,10 +162,10 @@
 
     async function renderResults() {
       let data;
-      try { data = await api(`/fixtures?league=${activeLeague}&season=${SEASON}&status=FT&last=20`); }
+      try { data = await api(`/fixtures?league=${activeLeague}&season=${SEASON}&status=FT`); }
       catch { return err('Failed to load results.'); }
 
-      const matches = [...(data.response || [])].reverse();
+      const matches = [...(data.response || [])].reverse().slice(0, 20);
       if (!matches.length) return err('No results found.');
 
       const html = matches.map(m => {
