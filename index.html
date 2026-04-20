@@ -3,223 +3,326 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>League Tracker</title>
+  <title>VRFS Football Manager</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white min-h-screen font-sans">
 
-  <header class="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between gap-3">
-    <div class="flex items-center gap-2 shrink-0">
-      <span class="text-xl">⚽</span>
-      <span class="font-bold">League Tracker</span>
+  <!-- Header -->
+  <div id="header" class="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+    <div>
+      <div class="font-bold text-lg">⚽ VRFS FC</div>
+      <div id="headerSub" class="text-xs text-gray-400">Strength: -- · Position: --</div>
     </div>
-    <select id="leagueSelect" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm w-full max-w-xs">
-      <option value="39">Premier League</option>
-      <option value="40">Championship</option>
-      <option value="41">League One</option>
-      <option value="42">League Two</option>
-    </select>
-  </header>
-
-  <div class="flex border-b border-gray-700 text-sm">
-    <button class="tab-btn flex-1 py-3 font-medium border-b-2 border-blue-500 text-blue-400" data-tab="table">Table</button>
-    <button class="tab-btn flex-1 py-3 font-medium text-gray-400 hover:text-white" data-tab="results">Results</button>
-    <button class="tab-btn flex-1 py-3 font-medium text-gray-400 hover:text-white" data-tab="scorers">Top Scorers</button>
+    <div class="text-right">
+      <div id="headerGames" class="text-sm font-medium">-- games left</div>
+      <div id="headerForm" class="text-xs text-gray-400">4-3-3</div>
+    </div>
   </div>
 
-  <main id="content" class="p-4 max-w-3xl mx-auto">
-    <p class="text-gray-400 text-center mt-10">Loading...</p>
-  </main>
+  <!-- Tabs -->
+  <div class="flex border-b border-gray-700 text-sm">
+    <button class="tab-btn flex-1 py-2 font-medium border-b-2 border-blue-500 text-blue-400" data-tab="squad">Squad</button>
+    <button class="tab-btn flex-1 py-2 font-medium text-gray-400" data-tab="tactics">Tactics</button>
+    <button class="tab-btn flex-1 py-2 font-medium text-gray-400" data-tab="season">Season</button>
+    <button class="tab-btn flex-1 py-2 font-medium text-gray-400" data-tab="stats">Stats</button>
+  </div>
+
+  <main id="content" class="p-4 max-w-2xl mx-auto"></main>
 
   <script>
-    const API_KEY = '269832c5a5ff1c7dbcb7e74039c010c8';
-    const BASE    = 'https://v3.football.api-sports.io';
-    const SEASON  = 2025;
+  // ── Players ───────────────────────────────────────
+  const RAW = [
+    { name: "Mr Blu",         shooting: 67, passing: 41, defending: 62 },
+    { name: "KillCam",        shooting: 72, passing: 55, defending: 40 },
+    { name: "JacobPFC",       shooting: 45, passing: 70, defending: 55 },
+    { name: "Bargain Bucket", shooting: 35, passing: 48, defending: 78 },
+    { name: "GiGi",           shooting: 30, passing: 40, defending: 82 },
+  ];
 
-    let activeTab    = 'table';
-    let activeLeague = '39';
+  function assignPos(p) {
+    const t = p.shooting + p.passing + p.defending;
+    const sr = p.shooting / t, dr = p.defending / t;
+    if (dr > 0.38) return "GK";
+    if (dr > 0.33) return "DEF";
+    if (sr > 0.36) return "FWD";
+    return "MID";
+  }
 
-    async function api(path) {
-      const res = await fetch(`${BASE}${path}`, {
-        headers: { 'x-apisports-key': API_KEY }
+  const PLAYERS = RAW.map((p, id) => ({
+    ...p, id,
+    position: assignPos(p),
+    overall: Math.round((p.shooting + p.passing + p.defending) / 3),
+    goals: 0, assists: 0, appearances: 0,
+  }));
+
+  // Ensure a GK
+  if (!PLAYERS.some(p => p.position === "GK")) {
+    const top = [...PLAYERS].sort((a,b) => b.defending - a.defending)[0];
+    PLAYERS.find(p => p.id === top.id).position = "GK";
+  }
+
+  // ── CPU Teams ─────────────────────────────────────
+  const CPU = [
+    { name: "Red Devils FC",   strength: 72 },
+    { name: "Blue City",       strength: 65 },
+    { name: "United Stars",    strength: 68 },
+    { name: "Rovers Athletic", strength: 60 },
+    { name: "Town FC",         strength: 55 },
+  ];
+
+  const MY_TEAM = "VRFS FC";
+  const POS_COLOR = { GK: "bg-yellow-600", DEF: "bg-blue-700", MID: "bg-green-700", FWD: "bg-red-700" };
+
+  // ── State ─────────────────────────────────────────
+  let activeTab  = "squad";
+  let formation  = "4-3-3";
+  let lineup     = PLAYERS.slice(0, Math.min(5, PLAYERS.length)).map(p => p.id);
+  let players    = PLAYERS.map(p => ({...p}));
+  let matchLog   = [];
+  let fixtures   = genFixtures();
+
+  function genFixtures() {
+    const all = [MY_TEAM, ...CPU.map(t => t.name)];
+    const fx = [];
+    for (let i = 0; i < all.length; i++)
+      for (let j = 0; j < all.length; j++)
+        if (i !== j) fx.push({ home: all[i], away: all[j], played: false, hg: null, ag: null });
+    return fx;
+  }
+
+  function teamStrength() {
+    if (!lineup.length) return 60;
+    return Math.round(lineup.map(id => players.find(p => p.id === id)?.overall || 60).reduce((a,b)=>a+b,0) / lineup.length);
+  }
+
+  function simMatch(hStr, aStr) {
+    const r = () => Math.random();
+    const hg = Math.floor(r() * r() * ((hStr + 5) / 100 * 4.5));
+    const ag = Math.floor(r() * r() * (aStr / 100 * 4.5));
+    return { hg, ag };
+  }
+
+  function getStandings() {
+    const all = [MY_TEAM, ...CPU.map(t => t.name)];
+    const tbl = Object.fromEntries(all.map(t => [t, { name:t,p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0 }]));
+    fixtures.filter(f => f.played).forEach(f => {
+      const h = tbl[f.home], a = tbl[f.away];
+      if (!h||!a) return;
+      h.p++; a.p++; h.gf+=f.hg; h.ga+=f.ag; a.gf+=f.ag; a.ga+=f.hg;
+      if (f.hg>f.ag){h.w++;h.pts+=3;a.l++;}
+      else if(f.hg<f.ag){a.w++;a.pts+=3;h.l++;}
+      else{h.d++;a.d++;h.pts++;a.pts++;}
+    });
+    return Object.values(tbl).sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga));
+  }
+
+  function remaining() { return fixtures.filter(f => f.home === MY_TEAM && !f.played).length; }
+
+  // ── Header update ─────────────────────────────────
+  function updateHeader() {
+    const standings = getStandings();
+    const pos = standings.findIndex(t => t.name === MY_TEAM) + 1;
+    document.getElementById("headerSub").textContent = `Strength: ${teamStrength()} · Position: ${pos}/${standings.length}`;
+    document.getElementById("headerGames").textContent = `${remaining()} games left`;
+    document.getElementById("headerForm").textContent = formation;
+  }
+
+  // ── Tabs ──────────────────────────────────────────
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => {
+        b.classList.remove("border-b-2","border-blue-500","text-blue-400");
+        b.classList.add("text-gray-400");
       });
-      if (!res.ok) throw new Error(`API error ${res.status}`);
-      return res.json();
-    }
+      btn.classList.add("border-b-2","border-blue-500","text-blue-400");
+      btn.classList.remove("text-gray-400");
+      activeTab = btn.dataset.tab;
+      render();
+    });
+  });
 
-    const $c = () => document.getElementById('content');
-    const loading = () => $c().innerHTML = `<p class="text-gray-400 text-center mt-10">Loading...</p>`;
-    const err = m  => $c().innerHTML = `<p class="text-red-400 text-center mt-10">${m}</p>`;
-    const fmtDate = d => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  // ── Render ────────────────────────────────────────
+  function render() {
+    updateHeader();
+    const c = document.getElementById("content");
+    if (activeTab === "squad")   c.innerHTML = renderSquad();
+    if (activeTab === "tactics") c.innerHTML = renderTactics();
+    if (activeTab === "season")  c.innerHTML = renderSeason();
+    if (activeTab === "stats")   c.innerHTML = renderStats();
+    bindEvents();
+  }
 
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => {
-          b.classList.remove('border-b-2', 'border-blue-500', 'text-blue-400');
-          b.classList.add('text-gray-400');
-        });
-        btn.classList.add('border-b-2', 'border-blue-500', 'text-blue-400');
-        btn.classList.remove('text-gray-400');
-        activeTab = btn.dataset.tab;
+  function renderSquad() {
+    return `<p class="text-xs text-gray-400 mb-3">Tap a player to toggle in/out of lineup (${lineup.length} selected)</p>` +
+      players.map(p => {
+        const inL = lineup.includes(p.id);
+        return `<div class="player-toggle rounded-lg px-4 py-3 flex items-center gap-3 cursor-pointer border-2 mb-2 transition-colors ${inL?'border-blue-500 bg-gray-800':'border-transparent bg-gray-800/50'}" data-pid="${p.id}">
+          <span class="text-xs font-bold px-2 py-1 rounded ${POS_COLOR[p.position]}">${p.position}</span>
+          <div class="flex-1">
+            <div class="font-medium">${p.name}</div>
+            <div class="text-xs text-gray-400">SHO ${p.shooting} · PAS ${p.passing} · DEF ${p.defending}</div>
+          </div>
+          <div class="text-right">
+            <div class="font-bold text-lg">${p.overall}</div>
+            <div class="text-xs text-gray-500">OVR</div>
+          </div>
+        </div>`;
+      }).join("");
+  }
+
+  function renderTactics() {
+    const formations = ["4-3-3","4-4-2","3-5-2","5-3-2","4-2-3-1"];
+    const fBtns = formations.map(f =>
+      `<button class="form-btn py-2 rounded-lg text-sm font-medium border-2 ${formation===f?'border-blue-500 bg-blue-900/40 text-blue-400':'border-gray-700 bg-gray-800 text-gray-300'}" data-f="${f}">${f}</button>`
+    ).join("");
+
+    const rows = formation.split("-").map((n, row, arr) => {
+      const label = row===0?"GK":row===arr.length-1?"FWD":row===1?"DEF":"MID";
+      const circles = Array.from({length:parseInt(n)}).map(() =>
+        `<div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold shadow">${label}</div>`
+      ).join("");
+      return `<div class="flex justify-center gap-3">${circles}</div>`;
+    }).join("");
+
+    const lineupNames = lineup.map(id => {
+      const p = players.find(x => x.id === id);
+      return p ? `<span class="text-xs bg-gray-700 px-2 py-1 rounded">${p.name}</span>` : "";
+    }).join("");
+
+    return `
+      <div class="space-y-4">
+        <div>
+          <p class="text-sm text-gray-400 mb-2">Formation</p>
+          <div class="grid grid-cols-3 gap-2">${fBtns}</div>
+        </div>
+        <div class="bg-green-900/40 border border-green-700 rounded-xl p-4 text-center">
+          <div class="text-xs text-green-400 mb-3 font-medium uppercase">Pitch View · ${formation}</div>
+          <div class="space-y-3">${rows}</div>
+        </div>
+        <div class="bg-gray-800 rounded-lg p-3">
+          <p class="text-xs text-gray-400 mb-2">Current Lineup (${lineup.length} players)</p>
+          <div class="flex flex-wrap gap-2">${lineupNames || '<span class="text-xs text-gray-500">No players selected</span>'}</div>
+        </div>
+      </div>`;
+  }
+
+  function renderSeason() {
+    const standings = getStandings();
+    const rows = standings.map((t, i) => `
+      <tr class="border-b border-gray-800 ${t.name===MY_TEAM?'bg-blue-900/20':''}">
+        <td class="py-2 text-gray-400 text-xs">${i+1}</td>
+        <td class="py-2 font-medium text-sm">${t.name}${t.name===MY_TEAM?' 🎮':''}</td>
+        <td class="py-2 text-center text-gray-300 text-sm">${t.p}</td>
+        <td class="py-2 text-center text-green-400 text-sm">${t.w}</td>
+        <td class="py-2 text-center text-yellow-400 text-sm">${t.d}</td>
+        <td class="py-2 text-center text-red-400 text-sm">${t.l}</td>
+        <td class="py-2 text-center text-sm ${t.gf-t.ga>0?'text-green-400':t.gf-t.ga<0?'text-red-400':'text-gray-400'}">${t.gf-t.ga>0?'+':''}${t.gf-t.ga}</td>
+        <td class="py-2 text-center font-bold text-sm">${t.pts}</td>
+      </tr>`).join("");
+
+    const log = matchLog.length
+      ? `<div class="bg-gray-800 rounded-lg p-3 space-y-1 mt-4">
+           <p class="text-xs text-gray-400 uppercase font-medium mb-2">Recent Results</p>
+           ${matchLog.map(l=>`<p class="text-sm">${l}</p>`).join("")}
+         </div>` : "";
+
+    const rem = remaining();
+    return `
+      <div class="overflow-x-auto mb-4">
+        <table class="w-full text-sm">
+          <thead><tr class="text-gray-400 text-xs uppercase border-b border-gray-700">
+            <th class="py-2 text-left">#</th><th class="py-2 text-left">Team</th>
+            <th class="py-2 text-center">P</th><th class="py-2 text-center">W</th>
+            <th class="py-2 text-center">D</th><th class="py-2 text-center">L</th>
+            <th class="py-2 text-center">GD</th><th class="py-2 text-center font-bold text-white">Pts</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="flex gap-2">
+        <button id="btnNext" ${rem===0?'disabled':''} class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg py-3 font-medium text-sm">▶ Play Next Game</button>
+        <button id="btnAll"  ${rem===0?'disabled':''} class="flex-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 rounded-lg py-3 font-medium text-sm">⏩ Sim Rest</button>
+      </div>
+      ${log}`;
+  }
+
+  function renderStats() {
+    return `<p class="text-xs text-gray-400 mb-3">Player statistics this season</p>` +
+      [...players].sort((a,b)=>b.goals-a.goals).map(p => `
+        <div class="bg-gray-800 rounded-lg px-4 py-3 flex items-center gap-3 mb-2">
+          <span class="text-xs font-bold px-2 py-1 rounded shrink-0 ${POS_COLOR[p.position]}">${p.position}</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium text-sm">${p.name}</div>
+            <div class="text-xs text-gray-400">${p.appearances} apps</div>
+          </div>
+          <div class="flex gap-4 text-sm">
+            <div class="text-center"><div class="text-green-400 font-bold">${p.goals}</div><div class="text-xs text-gray-500">G</div></div>
+            <div class="text-center"><div class="text-blue-400 font-bold">${p.assists}</div><div class="text-xs text-gray-500">A</div></div>
+          </div>
+        </div>`).join("");
+  }
+
+  // ── Event binding ─────────────────────────────────
+  function bindEvents() {
+    document.querySelectorAll(".player-toggle").forEach(el => {
+      el.addEventListener("click", () => {
+        const id = parseInt(el.dataset.pid);
+        lineup = lineup.includes(id) ? lineup.filter(x=>x!==id) : [...lineup, id];
         render();
       });
     });
 
-    document.getElementById('leagueSelect').addEventListener('change', e => {
-      activeLeague = e.target.value;
-      render();
+    document.querySelectorAll(".form-btn").forEach(btn => {
+      btn.addEventListener("click", () => { formation = btn.dataset.f; render(); });
     });
 
-    function render() {
-      loading();
-      ({ table: renderTable, results: renderResults, scorers: renderScorers }[activeTab])();
+    const btnNext = document.getElementById("btnNext");
+    if (btnNext) btnNext.addEventListener("click", playNext);
+
+    const btnAll = document.getElementById("btnAll");
+    if (btnAll) btnAll.addEventListener("click", playAll);
+  }
+
+  function playNext() {
+    const next = fixtures.find(f => f.home === MY_TEAM && !f.played);
+    if (!next) return;
+    const cpuStr = CPU.find(t => t.name === next.away)?.strength || 65;
+    const { hg, ag } = simMatch(teamStrength(), cpuStr);
+
+    const outfield = lineup.map(id => players.find(p => p.id === id)).filter(Boolean);
+    let g = hg;
+    while (g-- > 0 && outfield.length) {
+      const s = outfield[Math.floor(Math.random()*outfield.length)];
+      players.find(p=>p.id===s.id).goals++;
+      if (outfield.length > 1) {
+        const others = outfield.filter(p=>p.id!==s.id);
+        players.find(p=>p.id===others[Math.floor(Math.random()*others.length)].id).assists++;
+      }
     }
+    outfield.forEach(p => players.find(x=>x.id===p.id).appearances++);
 
-    async function renderTable() {
-      let data;
-      try { data = await api(`/standings?league=${activeLeague}&season=${SEASON}`); }
-      catch { return err('Failed to load standings.'); }
-
-      const rows = data.response?.[0]?.league?.standings?.[0];
-      if (!rows) return err('No standings data found.');
-
-      const html = rows.map(row => {
-        const { rank: pos, team, points, goalsDiff: gd, all: s, form } = row;
-        const p = s.played, w = s.win, d = s.draw, l = s.lose;
-        const winPct  = p ? ((w/p)*100).toFixed(1) : '0.0';
-        const drawPct = p ? ((d/p)*100).toFixed(1) : '0.0';
-        const lossPct = p ? ((l/p)*100).toFixed(1) : '0.0';
-        const badge = pos <= 4 ? 'bg-blue-600' : pos >= rows.length - 2 ? 'bg-red-700' : 'bg-gray-700';
-        const formBadges = (form || '').split('').map(r => {
-          const c = { W: 'bg-green-600', D: 'bg-yellow-500 text-black', L: 'bg-red-600' }[r] || 'bg-gray-600';
-          return `<span class="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${c}">${r}</span>`;
-        }).join('');
-
-        return `
-          <tr class="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer team-row" data-id="${team.id}">
-            <td class="py-2 pl-1"><span class="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${badge}">${pos}</span></td>
-            <td class="py-2 pr-2">
-              <div class="flex items-center gap-2">
-                <img src="${team.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'" />
-                <span class="font-medium text-sm">${team.name}</span>
-              </div>
-            </td>
-            <td class="py-2 text-center text-gray-300 text-sm">${p}</td>
-            <td class="py-2 text-center text-green-400 text-sm">${w}</td>
-            <td class="py-2 text-center text-yellow-400 text-sm">${d}</td>
-            <td class="py-2 text-center text-red-400 text-sm">${l}</td>
-            <td class="py-2 text-center text-sm ${gd > 0 ? 'text-green-400' : gd < 0 ? 'text-red-400' : 'text-gray-400'}">${gd > 0 ? '+' : ''}${gd}</td>
-            <td class="py-2 text-center font-bold text-sm">${points}</td>
-          </tr>
-          <tr class="team-detail hidden bg-gray-800/80" id="detail-${team.id}">
-            <td colspan="8" class="px-4 py-3 space-y-2">
-              <div class="flex items-center gap-3 mb-1">
-                <img src="${team.logo}" class="w-7 h-7 object-contain" />
-                <span class="font-semibold">${team.name}</span>
-              </div>
-              <div class="text-xs text-gray-400 uppercase font-medium">Win / Draw / Loss %</div>
-              <div class="flex items-center gap-2 text-xs"><span class="w-4 text-gray-400">W</span><div class="flex-1 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-green-500" style="width:${winPct}%"></div></div><span class="w-12 text-right">${winPct}%</span></div>
-              <div class="flex items-center gap-2 text-xs"><span class="w-4 text-gray-400">D</span><div class="flex-1 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-yellow-500" style="width:${drawPct}%"></div></div><span class="w-12 text-right">${drawPct}%</span></div>
-              <div class="flex items-center gap-2 text-xs"><span class="w-4 text-gray-400">L</span><div class="flex-1 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-red-500" style="width:${lossPct}%"></div></div><span class="w-12 text-right">${lossPct}%</span></div>
-              <div class="flex items-center gap-2 mt-1">
-                <span class="text-xs text-gray-400">Form:</span>
-                <div class="flex gap-1">${formBadges}</div>
-              </div>
-              <div class="text-xs text-gray-400">${s.goals.for} scored · ${s.goals.against} conceded</div>
-            </td>
-          </tr>`;
-      }).join('');
-
-      $c().innerHTML = `
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead>
-              <tr class="text-gray-400 text-xs uppercase border-b border-gray-700">
-                <th class="py-2 pl-1 text-left w-6">#</th>
-                <th class="py-2 text-left">Team</th>
-                <th class="py-2 text-center">P</th>
-                <th class="py-2 text-center">W</th>
-                <th class="py-2 text-center">D</th>
-                <th class="py-2 text-center">L</th>
-                <th class="py-2 text-center">GD</th>
-                <th class="py-2 text-center font-bold text-white">Pts</th>
-              </tr>
-            </thead>
-            <tbody>${html}</tbody>
-          </table>
-        </div>
-        <div class="flex flex-wrap gap-3 mt-3 text-xs text-gray-400">
-          <span><span class="inline-block w-3 h-3 bg-blue-600 rounded mr-1"></span>Top 4</span>
-          <span><span class="inline-block w-3 h-3 bg-red-700 rounded mr-1"></span>Relegation</span>
-        </div>`;
-
-      document.querySelectorAll('.team-row').forEach(r => {
-        r.addEventListener('click', () => {
-          document.getElementById(`detail-${r.dataset.id}`).classList.toggle('hidden');
-        });
-      });
-    }
-
-    async function renderResults() {
-      let data;
-      try { data = await api(`/fixtures?league=${activeLeague}&season=${SEASON}&status=FT`); }
-      catch { return err('Failed to load results.'); }
-
-      const matches = [...(data.response || [])].reverse().slice(0, 20);
-      if (!matches.length) return err('No results found.');
-
-      const html = matches.map(m => {
-        const h = m.teams.home, a = m.teams.away;
-        return `
-          <div class="bg-gray-800 rounded-lg px-4 py-3">
-            <div class="text-xs text-gray-500 mb-2">${fmtDate(m.fixture.date)} · ${m.league.round}</div>
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2 flex-1 justify-end">
-                <span class="font-medium text-sm text-right">${h.name}</span>
-                <img src="${h.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'" />
-              </div>
-              <span class="bg-gray-700 rounded px-3 py-1 font-bold text-sm min-w-16 text-center">${m.goals.home} – ${m.goals.away}</span>
-              <div class="flex items-center gap-2 flex-1">
-                <img src="${a.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'" />
-                <span class="font-medium text-sm">${a.name}</span>
-              </div>
-            </div>
-          </div>`;
-      }).join('');
-
-      $c().innerHTML = `<div class="space-y-2">${html}</div>`;
-    }
-
-    async function renderScorers() {
-      let data;
-      try { data = await api(`/players/topscorers?league=${activeLeague}&season=${SEASON}`); }
-      catch { return err('Failed to load scorers.'); }
-
-      const players = data.response || [];
-      if (!players.length) return err('No scorer data found.');
-
-      const html = players.map((s, i) => {
-        const p = s.player, st = s.statistics[0];
-        return `
-          <div class="bg-gray-800 rounded-lg px-4 py-3 flex items-center gap-3">
-            <span class="text-gray-500 text-sm w-5 shrink-0">${i + 1}</span>
-            <img src="${p.photo}" class="w-8 h-8 rounded-full object-cover shrink-0" onerror="this.style.display='none'" />
-            <div class="flex-1 min-w-0">
-              <div class="font-medium text-sm truncate">${p.name}</div>
-              <div class="text-xs text-gray-400">${st.team.name} · ${st.games.position || ''}</div>
-            </div>
-            <div class="flex gap-3 text-sm shrink-0">
-              <div class="text-center"><div class="text-green-400 font-bold">${st.goals.total ?? 0}</div><div class="text-xs text-gray-500">Goals</div></div>
-              <div class="text-center"><div class="text-blue-400 font-bold">${st.goals.assists ?? 0}</div><div class="text-xs text-gray-500">Assists</div></div>
-              <div class="text-center"><div class="text-gray-300 font-bold">${st.games.appearences ?? 0}</div><div class="text-xs text-gray-500">Apps</div></div>
-            </div>
-          </div>`;
-      }).join('');
-
-      $c().innerHTML = `<div class="space-y-2">${html}</div>`;
-    }
-
+    fixtures.find(f=>f===next).played = true;
+    fixtures.find(f=>f===next).hg = hg;
+    fixtures.find(f=>f===next).ag = ag;
+    matchLog = [`⚽ ${next.home} ${hg} – ${ag} ${next.away}`, ...matchLog].slice(0,20);
     render();
+  }
+
+  function playAll() {
+    fixtures = fixtures.map(f => {
+      if (f.played) return f;
+      let hStr, aStr;
+      if (f.home===MY_TEAM){hStr=teamStrength();aStr=CPU.find(t=>t.name===f.away)?.strength||65;}
+      else if(f.away===MY_TEAM){hStr=CPU.find(t=>t.name===f.home)?.strength||65;aStr=teamStrength();}
+      else{hStr=CPU.find(t=>t.name===f.home)?.strength||65;aStr=CPU.find(t=>t.name===f.away)?.strength||65;}
+      const {hg,ag} = simMatch(hStr,aStr);
+      return {...f,played:true,hg,ag};
+    });
+    render();
+  }
+
+  render();
   </script>
 </body>
 </html>
