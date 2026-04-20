@@ -8,66 +8,50 @@
 </head>
 <body class="bg-gray-900 text-white min-h-screen font-sans">
 
-  <!-- Header -->
   <header class="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between gap-3">
     <div class="flex items-center gap-2 shrink-0">
       <span class="text-xl">⚽</span>
       <span class="font-bold">League Tracker</span>
     </div>
     <select id="leagueSelect" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm w-full max-w-xs">
-      <option value="PL">Premier League</option>
-      <!-- Add more leagues here if you upgrade your plan: -->
-      <!-- <option value="ELC">Championship</option> -->
-      <!-- <option value="EL1">League One</option> -->
-      <!-- <option value="EL2">League Two</option> -->
+      <option value="39">Premier League</option>
+      <option value="40">Championship</option>
+      <option value="41">League One</option>
+      <option value="42">League Two</option>
     </select>
   </header>
 
-  <!-- Tabs -->
   <div class="flex border-b border-gray-700 text-sm">
     <button class="tab-btn flex-1 py-3 font-medium border-b-2 border-blue-500 text-blue-400" data-tab="table">Table</button>
     <button class="tab-btn flex-1 py-3 font-medium text-gray-400 hover:text-white" data-tab="results">Results</button>
     <button class="tab-btn flex-1 py-3 font-medium text-gray-400 hover:text-white" data-tab="scorers">Top Scorers</button>
   </div>
 
-  <!-- Content -->
   <main id="content" class="p-4 max-w-3xl mx-auto">
     <p class="text-gray-400 text-center mt-10">Loading...</p>
   </main>
 
   <script>
-    // ── PUT YOUR API KEY HERE ──────────────────────────
-    const API_KEY = 'f3887b0bd40944369ceed44ab1fead5d';
-    const BASE = 'https://api.football-data.org/v4';
+    const API_KEY = '269832c5a5ff1c7dbcb7e74039c010c8';
+    const BASE    = 'https://v3.football.api-sports.io';
+    const SEASON  = 2024;
 
-    let activeTab = 'table';
-    let activeLeague = 'PL';
+    let activeTab    = 'table';
+    let activeLeague = '39';
 
-    // ── API helper ────────────────────────────────────
     async function api(path) {
       const res = await fetch(`${BASE}${path}`, {
-        headers: { 'X-Auth-Token': API_KEY }
+        headers: { 'x-apisports-key': API_KEY }
       });
       if (!res.ok) throw new Error(`API error ${res.status}`);
       return res.json();
     }
 
-    // ── Helpers ───────────────────────────────────────
-    const $content = () => document.getElementById('content');
+    const $c = () => document.getElementById('content');
+    const loading = () => $c().innerHTML = `<p class="text-gray-400 text-center mt-10">Loading...</p>`;
+    const err = m  => $c().innerHTML = `<p class="text-red-400 text-center mt-10">${m}</p>`;
+    const fmtDate = d => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
-    function loading() {
-      $content().innerHTML = `<p class="text-gray-400 text-center mt-10">Loading...</p>`;
-    }
-
-    function error(msg) {
-      $content().innerHTML = `<p class="text-red-400 text-center mt-10">${msg}</p>`;
-    }
-
-    function fmtDate(d) {
-      return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    }
-
-    // ── Tabs ──────────────────────────────────────────
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => {
@@ -86,43 +70,38 @@
       render();
     });
 
-    // ── Render router ─────────────────────────────────
     function render() {
       loading();
       ({ table: renderTable, results: renderResults, scorers: renderScorers }[activeTab])();
     }
 
-    // ── TABLE ─────────────────────────────────────────
     async function renderTable() {
       let data;
-      try { data = await api(`/competitions/${activeLeague}/standings`); }
-      catch { return error('Failed to load standings. Check your API key.'); }
+      try { data = await api(`/standings?league=${activeLeague}&season=${SEASON}`); }
+      catch { return err('Failed to load standings.'); }
 
-      const table = data.standings.find(s => s.type === 'TOTAL').table;
-      const matchday = data.season.currentMatchday;
+      const rows = data.response?.[0]?.league?.standings?.[0];
+      if (!rows) return err('No standings data found.');
 
-      const rows = table.map(row => {
-        const { position: pos, team, playedGames: p, won: w, draw: d, lost: l,
-                points, goalDifference: gd, goalsFor, goalsAgainst, form } = row;
-        const winPct  = p ? ((w / p) * 100).toFixed(1) : '0.0';
-        const drawPct = p ? ((d / p) * 100).toFixed(1) : '0.0';
-        const lossPct = p ? ((l / p) * 100).toFixed(1) : '0.0';
-        const posBadge = pos <= 4 ? 'bg-blue-600' : pos >= table.length - 2 ? 'bg-red-700' : 'bg-gray-700';
-
-        const formBadges = (form || '').split(',').slice(0, 5).map(r => {
+      const html = rows.map(row => {
+        const { rank: pos, team, points, goalsDiff: gd, all: s, form } = row;
+        const p = s.played, w = s.win, d = s.draw, l = s.lose;
+        const winPct  = p ? ((w/p)*100).toFixed(1) : '0.0';
+        const drawPct = p ? ((d/p)*100).toFixed(1) : '0.0';
+        const lossPct = p ? ((l/p)*100).toFixed(1) : '0.0';
+        const badge = pos <= 4 ? 'bg-blue-600' : pos >= rows.length - 2 ? 'bg-red-700' : 'bg-gray-700';
+        const formBadges = (form || '').split('').map(r => {
           const c = { W: 'bg-green-600', D: 'bg-yellow-500 text-black', L: 'bg-red-600' }[r] || 'bg-gray-600';
           return `<span class="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${c}">${r}</span>`;
         }).join('');
 
         return `
           <tr class="border-b border-gray-800 hover:bg-gray-800/60 cursor-pointer team-row" data-id="${team.id}">
-            <td class="py-2 pr-1 pl-1">
-              <span class="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${posBadge}">${pos}</span>
-            </td>
+            <td class="py-2 pl-1"><span class="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold ${badge}">${pos}</span></td>
             <td class="py-2 pr-2">
               <div class="flex items-center gap-2">
-                <img src="${team.crest}" class="w-5 h-5 object-contain" onerror="this.style.display='none'" />
-                <span class="font-medium text-sm">${team.shortName || team.name}</span>
+                <img src="${team.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'" />
+                <span class="font-medium text-sm">${team.name}</span>
               </div>
             </td>
             <td class="py-2 text-center text-gray-300 text-sm">${p}</td>
@@ -134,25 +113,24 @@
           </tr>
           <tr class="team-detail hidden bg-gray-800/80" id="detail-${team.id}">
             <td colspan="8" class="px-4 py-3 space-y-2">
-              <div class="flex items-center gap-3 mb-2">
-                <img src="${team.crest}" class="w-8 h-8 object-contain" onerror="this.style.display='none'" />
+              <div class="flex items-center gap-3 mb-1">
+                <img src="${team.logo}" class="w-7 h-7 object-contain" />
                 <span class="font-semibold">${team.name}</span>
               </div>
-              <div class="text-xs text-gray-400 uppercase font-medium mb-1">Win / Draw / Loss %</div>
-              <div class="flex items-center gap-2 text-xs"><span class="w-4 text-gray-400">W</span><div class="flex-1 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-green-500 transition-all" style="width:${winPct}%"></div></div><span class="w-12 text-right text-gray-300">${winPct}%</span></div>
-              <div class="flex items-center gap-2 text-xs"><span class="w-4 text-gray-400">D</span><div class="flex-1 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-yellow-500 transition-all" style="width:${drawPct}%"></div></div><span class="w-12 text-right text-gray-300">${drawPct}%</span></div>
-              <div class="flex items-center gap-2 text-xs"><span class="w-4 text-gray-400">L</span><div class="flex-1 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-red-500 transition-all" style="width:${lossPct}%"></div></div><span class="w-12 text-right text-gray-300">${lossPct}%</span></div>
-              <div class="flex items-center gap-3 mt-2">
+              <div class="text-xs text-gray-400 uppercase font-medium">Win / Draw / Loss %</div>
+              <div class="flex items-center gap-2 text-xs"><span class="w-4 text-gray-400">W</span><div class="flex-1 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-green-500" style="width:${winPct}%"></div></div><span class="w-12 text-right">${winPct}%</span></div>
+              <div class="flex items-center gap-2 text-xs"><span class="w-4 text-gray-400">D</span><div class="flex-1 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-yellow-500" style="width:${drawPct}%"></div></div><span class="w-12 text-right">${drawPct}%</span></div>
+              <div class="flex items-center gap-2 text-xs"><span class="w-4 text-gray-400">L</span><div class="flex-1 bg-gray-700 rounded-full h-2"><div class="h-2 rounded-full bg-red-500" style="width:${lossPct}%"></div></div><span class="w-12 text-right">${lossPct}%</span></div>
+              <div class="flex items-center gap-2 mt-1">
                 <span class="text-xs text-gray-400">Form:</span>
                 <div class="flex gap-1">${formBadges}</div>
               </div>
-              <div class="text-xs text-gray-400">${goalsFor} scored · ${goalsAgainst} conceded</div>
+              <div class="text-xs text-gray-400">${s.goals.for} scored · ${s.goals.against} conceded</div>
             </td>
           </tr>`;
       }).join('');
 
-      $content().innerHTML = `
-        <p class="text-xs text-gray-500 mb-2">Matchday ${matchday}</p>
+      $c().innerHTML = `
         <div class="overflow-x-auto">
           <table class="w-full">
             <thead>
@@ -167,85 +145,80 @@
                 <th class="py-2 text-center font-bold text-white">Pts</th>
               </tr>
             </thead>
-            <tbody>${rows}</tbody>
+            <tbody>${html}</tbody>
           </table>
         </div>
         <div class="flex flex-wrap gap-3 mt-3 text-xs text-gray-400">
-          <span><span class="inline-block w-3 h-3 bg-blue-600 rounded mr-1"></span>Top 4 (Europe)</span>
+          <span><span class="inline-block w-3 h-3 bg-blue-600 rounded mr-1"></span>Top 4</span>
           <span><span class="inline-block w-3 h-3 bg-red-700 rounded mr-1"></span>Relegation</span>
         </div>`;
 
-      document.querySelectorAll('.team-row').forEach(row => {
-        row.addEventListener('click', () => {
-          document.getElementById(`detail-${row.dataset.id}`).classList.toggle('hidden');
+      document.querySelectorAll('.team-row').forEach(r => {
+        r.addEventListener('click', () => {
+          document.getElementById(`detail-${r.dataset.id}`).classList.toggle('hidden');
         });
       });
     }
 
-    // ── RESULTS ───────────────────────────────────────
     async function renderResults() {
       let data;
-      try { data = await api(`/competitions/${activeLeague}/matches?status=FINISHED&limit=20`); }
-      catch { return error('Failed to load results.'); }
+      try { data = await api(`/fixtures?league=${activeLeague}&season=${SEASON}&status=FT&last=20`); }
+      catch { return err('Failed to load results.'); }
 
-      const matches = [...data.matches].reverse();
-      if (!matches.length) return error('No results yet this season.');
+      const matches = [...(data.response || [])].reverse();
+      if (!matches.length) return err('No results found.');
 
-      const html = matches.map(m => `
-        <div class="bg-gray-800 rounded-lg px-4 py-3">
-          <div class="text-xs text-gray-500 mb-2">${fmtDate(m.utcDate)} · Matchday ${m.matchday}</div>
-          <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2 flex-1 justify-end">
-              <span class="font-medium text-sm text-right">${m.homeTeam.shortName || m.homeTeam.name}</span>
-              <img src="${m.homeTeam.crest}" class="w-5 h-5 object-contain" onerror="this.style.display='none'" />
+      const html = matches.map(m => {
+        const h = m.teams.home, a = m.teams.away;
+        return `
+          <div class="bg-gray-800 rounded-lg px-4 py-3">
+            <div class="text-xs text-gray-500 mb-2">${fmtDate(m.fixture.date)} · ${m.league.round}</div>
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 flex-1 justify-end">
+                <span class="font-medium text-sm text-right">${h.name}</span>
+                <img src="${h.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'" />
+              </div>
+              <span class="bg-gray-700 rounded px-3 py-1 font-bold text-sm min-w-16 text-center">${m.goals.home} – ${m.goals.away}</span>
+              <div class="flex items-center gap-2 flex-1">
+                <img src="${a.logo}" class="w-5 h-5 object-contain" onerror="this.style.display='none'" />
+                <span class="font-medium text-sm">${a.name}</span>
+              </div>
             </div>
-            <span class="bg-gray-700 rounded px-3 py-1 font-bold text-sm min-w-16 text-center">
-              ${m.score.fullTime.home} – ${m.score.fullTime.away}
-            </span>
-            <div class="flex items-center gap-2 flex-1">
-              <img src="${m.awayTeam.crest}" class="w-5 h-5 object-contain" onerror="this.style.display='none'" />
-              <span class="font-medium text-sm">${m.awayTeam.shortName || m.awayTeam.name}</span>
-            </div>
-          </div>
-        </div>`).join('');
+          </div>`;
+      }).join('');
 
-      $content().innerHTML = `<div class="space-y-2">${html}</div>`;
+      $c().innerHTML = `<div class="space-y-2">${html}</div>`;
     }
 
-    // ── TOP SCORERS ───────────────────────────────────
     async function renderScorers() {
       let data;
-      try { data = await api(`/competitions/${activeLeague}/scorers?limit=20`); }
-      catch { return error('Failed to load scorers.'); }
+      try { data = await api(`/players/topscorers?league=${activeLeague}&season=${SEASON}`); }
+      catch { return err('Failed to load scorers.'); }
 
-      const html = data.scorers.map((s, i) => `
-        <div class="bg-gray-800 rounded-lg px-4 py-3 flex items-center gap-3">
-          <span class="text-gray-500 text-sm w-5 shrink-0">${i + 1}</span>
-          <img src="${s.team?.crest}" class="w-6 h-6 object-contain shrink-0" onerror="this.style.display='none'" />
-          <div class="flex-1 min-w-0">
-            <div class="font-medium text-sm truncate">${s.player.name}</div>
-            <div class="text-xs text-gray-400">${s.team?.shortName || s.team?.name || ''} · ${s.player.nationality || ''}</div>
-          </div>
-          <div class="flex gap-4 text-sm shrink-0">
-            <div class="text-center">
-              <div class="text-green-400 font-bold">${s.goals ?? 0}</div>
-              <div class="text-xs text-gray-500">Goals</div>
-            </div>
-            <div class="text-center">
-              <div class="text-blue-400 font-bold">${s.assists ?? 0}</div>
-              <div class="text-xs text-gray-500">Assists</div>
-            </div>
-            <div class="text-center">
-              <div class="text-gray-300 font-bold">${s.playedMatches ?? 0}</div>
-              <div class="text-xs text-gray-500">Apps</div>
-            </div>
-          </div>
-        </div>`).join('');
+      const players = data.response || [];
+      if (!players.length) return err('No scorer data found.');
 
-      $content().innerHTML = `<div class="space-y-2">${html}</div>`;
+      const html = players.map((s, i) => {
+        const p = s.player, st = s.statistics[0];
+        return `
+          <div class="bg-gray-800 rounded-lg px-4 py-3 flex items-center gap-3">
+            <span class="text-gray-500 text-sm w-5 shrink-0">${i + 1}</span>
+            <img src="${p.photo}" class="w-8 h-8 rounded-full object-cover shrink-0" onerror="this.style.display='none'" />
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-sm truncate">${p.name}</div>
+              <div class="text-xs text-gray-400">${st.team.name} · ${st.games.position || ''}</div>
+            </div>
+            <div class="flex gap-3 text-sm shrink-0">
+              <div class="text-center"><div class="text-green-400 font-bold">${st.goals.total ?? 0}</div><div class="text-xs text-gray-500">Goals</div></div>
+              <div class="text-center"><div class="text-blue-400 font-bold">${st.goals.assists ?? 0}</div><div class="text-xs text-gray-500">Assists</div></div>
+              <div class="text-center"><div class="text-gray-300 font-bold">${st.games.appearences ?? 0}</div><div class="text-xs text-gray-500">Apps</div></div>
+            </div>
+          </div>`;
+      }).join('');
+
+      $c().innerHTML = `<div class="space-y-2">${html}</div>`;
     }
 
-    // ── Start ─────────────────────────────────────────
     render();
   </script>
 </body>
