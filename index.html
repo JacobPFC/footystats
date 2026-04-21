@@ -1,353 +1,596 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VRFS Football Manager</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VRFS Football Manager</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  .pitch-bg { background: repeating-linear-gradient(180deg,#16a34a 0px,#16a34a 40px,#15803d 40px,#15803d 80px); }
+  .card { background:#1e293b; border:1px solid #334155; border-radius:12px; }
+  .glow-blue { box-shadow: 0 0 20px rgba(59,130,246,0.3); }
+  .player-pill { transition: all 0.2s; }
+  .player-pill:hover { transform: translateY(-2px); }
+  ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-track { background:#0f172a; } ::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
+</style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen font-sans">
+<body class="bg-slate-950 text-white min-h-screen font-sans select-none">
 
-  <!-- Header -->
-  <div id="header" class="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
-    <div>
-      <div class="font-bold text-lg">⚽ VRFS FC</div>
-      <div id="headerSub" class="text-xs text-gray-400">Strength: -- · Position: --</div>
-    </div>
-    <div class="text-right">
-      <div id="headerGames" class="text-sm font-medium">-- games left</div>
-      <div id="headerForm" class="text-xs text-gray-400">4-3-3</div>
-    </div>
-  </div>
+<div id="app"></div>
 
-  <!-- Tabs -->
-  <div class="flex border-b border-gray-700 text-sm">
-    <button class="tab-btn flex-1 py-2 font-medium border-b-2 border-blue-500 text-blue-400" data-tab="squad">Squad</button>
-    <button class="tab-btn flex-1 py-2 font-medium text-gray-400" data-tab="tactics">Tactics</button>
-    <button class="tab-btn flex-1 py-2 font-medium text-gray-400" data-tab="season">Season</button>
-    <button class="tab-btn flex-1 py-2 font-medium text-gray-400" data-tab="stats">Stats</button>
-  </div>
+<script>
+// ── DATA ─────────────────────────────────────────────
+const ALL_PLAYERS = [
+  {name:"Mr Blu",        sho:74,pas:55,def:48},
+  {name:"KillCam",       sho:82,pas:44,def:38},
+  {name:"JacobPFC",      sho:58,pas:76,def:52},
+  {name:"Bargain Bucket",sho:40,pas:52,def:79},
+  {name:"GiGi",          sho:33,pas:45,def:85},
+  {name:"BG",            sho:65,pas:68,def:50},
+  {name:"Neuer",         sho:28,pas:60,def:91},
+  {name:"Ludi",          sho:70,pas:48,def:44},
+  {name:"Danaldo",       sho:88,pas:62,def:35},
+  {name:"Thunder",       sho:77,pas:50,def:42},
+  {name:"Tullien",       sho:50,pas:72,def:58},
+  {name:"Luxien",        sho:44,pas:55,def:75},
+  {name:"Maddox",        sho:61,pas:80,def:46},
+  {name:"Evra",          sho:48,pas:66,def:72},
+  {name:"Hydro",         sho:79,pas:53,def:40},
+  {name:"SR28",          sho:55,pas:60,def:63},
+  {name:"Nuno Mendes",   sho:42,pas:58,def:78},
+  {name:"Kuba",          sho:68,pas:71,def:45},
+  {name:"FLOPZ",         sho:83,pas:47,def:36},
+  {name:"rhys",          sho:52,pas:64,def:60},
+  {name:"Godly",         sho:76,pas:58,def:43},
+  {name:"Bobby da piss man",sho:71,pas:49,def:55},
+  {name:"Shark",         sho:85,pas:42,def:33},
+  {name:"Fz",            sho:46,pas:74,def:56},
+  {name:"Kirby",         sho:63,pas:55,def:65},
+  {name:"Sancho",        sho:78,pas:67,def:38},
+  {name:"Kuna",          sho:37,pas:50,def:83},
+  {name:"Tjay",          sho:69,pas:62,def:47},
+  {name:"Zync",          sho:54,pas:78,def:50},
+  {name:"Belles",        sho:41,pas:56,def:80},
+];
 
-  <main id="content" class="p-4 max-w-2xl mx-auto"></main>
+const TEAM_NAMES = ["VRFS United","Night Owls FC","Storm City","The Sharks","Brick Lane FC","Midnight FC"];
+const TEAM_COLORS = ["#3b82f6","#8b5cf6","#ef4444","#06b6d4","#f59e0b","#10b981"];
+const FORMATIONS_5 = ["1-2-2","1-3-1","1-1-3","2-2-1"];
 
-  <script>
-  // ── Players ───────────────────────────────────────
-  const RAW = [
-    { name: "Mr Blu",          shooting: 74, passing: 55, defending: 48 },
-    { name: "KillCam",         shooting: 82, passing: 44, defending: 38 },
-    { name: "JacobPFC",        shooting: 58, passing: 76, defending: 52 },
-    { name: "Bargain Bucket",  shooting: 40, passing: 52, defending: 79 },
-    { name: "GiGi",            shooting: 33, passing: 45, defending: 85 },
-    { name: "BG",              shooting: 65, passing: 68, defending: 50 },
-    { name: "Neuer",           shooting: 28, passing: 60, defending: 91 },
-    { name: "Ludi",            shooting: 70, passing: 48, defending: 44 },
-    { name: "Danaldo",         shooting: 88, passing: 62, defending: 35 },
-    { name: "Thunder",         shooting: 77, passing: 50, defending: 42 },
-    { name: "Tullien",         shooting: 50, passing: 72, defending: 58 },
-    { name: "Luxien",          shooting: 44, passing: 55, defending: 75 },
-    { name: "Maddox",          shooting: 61, passing: 80, defending: 46 },
-    { name: "Evra",            shooting: 48, passing: 66, defending: 72 },
-    { name: "Hydro",           shooting: 79, passing: 53, defending: 40 },
-    { name: "SR28",            shooting: 55, passing: 60, defending: 63 },
-    { name: "Nuno Mendes",     shooting: 42, passing: 58, defending: 78 },
-    { name: "Kuba",            shooting: 68, passing: 71, defending: 45 },
-    { name: "FLOPZ",           shooting: 83, passing: 47, defending: 36 },
-    { name: "rhys",            shooting: 52, passing: 64, defending: 60 },
-    { name: "Godly",           shooting: 76, passing: 58, defending: 43 },
-    { name: "Bobby da piss man",shooting: 71, passing: 49, defending: 55 },
-    { name: "Shark",           shooting: 85, passing: 42, defending: 33 },
-    { name: "Fz",              shooting: 46, passing: 74, defending: 56 },
-    { name: "Kirby",           shooting: 63, passing: 55, defending: 65 },
-    { name: "Sancho",          shooting: 78, passing: 67, defending: 38 },
-    { name: "Kuna",            shooting: 37, passing: 50, defending: 83 },
-    { name: "Tjay",            shooting: 69, passing: 62, defending: 47 },
-    { name: "Zync",            shooting: 54, passing: 78, defending: 50 },
-    { name: "Belles",          shooting: 41, passing: 56, defending: 80 },
+function ovr(p){ return Math.round((p.sho+p.pas+p.def)/3); }
+function pos(p){
+  const t=p.sho+p.pas+p.def, sr=p.sho/t, dr=p.def/t;
+  if(dr>0.38) return "GK";
+  if(dr>0.33) return "DEF";
+  if(sr>0.36) return "FWD";
+  return "MID";
+}
+
+function rnd(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function shuffle(a){ const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; }
+
+// Build players
+const players = shuffle(ALL_PLAYERS).map((p,i) => ({
+  ...p, id:i,
+  pos: pos(p), ovr: ovr(p),
+  teamId: Math.floor(i/5),
+  morale: rnd(60,90), form: rnd(50,80),
+  goals:0, assists:0, apps:0, rating:0, ratings:[],
+  transferListed: false,
+}));
+
+// Build teams
+const teams = TEAM_NAMES.map((name,i) => ({
+  id:i, name, color: TEAM_COLORS[i],
+  formation: FORMATIONS_5[0],
+  morale: 70, funds: rnd(20,50)*100,
+  w:0,d:0,l:0,gf:0,ga:0,pts:0,
+}));
+
+// Season fixtures (round robin)
+function genFixtures(){
+  const fx=[];
+  for(let i=0;i<6;i++) for(let j=0;j<6;j++) if(i!==j) fx.push({home:i,away:j,played:false,hg:null,ag:null,events:[]});
+  return shuffle(fx);
+}
+
+// Cup draw
+function genCup(){
+  const ids=shuffle([0,1,2,3,4,5]);
+  return [
+    {r:"Semi Final",home:ids[0],away:ids[1],played:false,hg:null,ag:null,winner:null},
+    {r:"Semi Final",home:ids[2],away:ids[3],played:false,hg:null,ag:null,winner:null},
+    {r:"Semi Final",home:ids[4],away:ids[5],played:false,hg:null,ag:null,winner:null},
   ];
+}
 
-  function assignPos(p) {
-    const t = p.shooting + p.passing + p.defending;
-    const sr = p.shooting / t, dr = p.defending / t;
-    if (dr > 0.38) return "GK";
-    if (dr > 0.33) return "DEF";
-    if (sr > 0.36) return "FWD";
-    return "MID";
-  }
+// ── STATE ─────────────────────────────────────────────
+let state = {
+  screen: "pick", // pick | main
+  tab: "squad",
+  myTeam: null,
+  players: [...players],
+  teams: [...teams],
+  fixtures: genFixtures(),
+  cup: genCup(),
+  matchLog: [],
+  news: ["Welcome to VRFS Football Manager 5-a-side!","Season has begun. Good luck manager!"],
+  transferOffers: [],
+  season: 1,
+};
 
-  const PLAYERS = RAW.map((p, id) => ({
-    ...p, id,
-    position: assignPos(p),
-    overall: Math.round((p.shooting + p.passing + p.defending) / 3),
-    goals: 0, assists: 0, appearances: 0,
-  }));
+// ── MATCH ENGINE ──────────────────────────────────────
+function getTeamPlayers(tid){ return state.players.filter(p=>p.teamId===tid); }
+function teamStr(tid){
+  const ps=getTeamPlayers(tid);
+  return ps.length ? Math.round(ps.reduce((a,p)=>a+p.ovr,0)/ps.length) : 50;
+}
 
-  // Ensure a GK
-  if (!PLAYERS.some(p => p.position === "GK")) {
-    const top = [...PLAYERS].sort((a,b) => b.defending - a.defending)[0];
-    PLAYERS.find(p => p.id === top.id).position = "GK";
-  }
-
-  // ── CPU Teams ─────────────────────────────────────
-  const CPU = [
-    { name: "Red Devils FC",   strength: 72 },
-    { name: "Blue City",       strength: 65 },
-    { name: "United Stars",    strength: 68 },
-    { name: "Rovers Athletic", strength: 60 },
-    { name: "Town FC",         strength: 55 },
+function commentary(scorer,team,min){
+  const lines=[
+    `⚽ ${min}' GOAL! ${scorer} fires one in for ${team}!`,
+    `⚽ ${min}' ${scorer} makes no mistake for ${team}!`,
+    `⚽ ${min}' Brilliant finish from ${scorer}!`,
+    `⚽ ${min}' ${team} take the lead through ${scorer}!`,
+    `⚽ ${min}' ${scorer} with a cool finish!`,
   ];
+  return lines[Math.floor(Math.random()*lines.length)];
+}
 
-  const MY_TEAM = "VRFS FC";
-  const POS_COLOR = { GK: "bg-yellow-600", DEF: "bg-blue-700", MID: "bg-green-700", FWD: "bg-red-700" };
+function simFull(hid,aid){
+  const hStr=teamStr(hid)+5, aStr=teamStr(aid);
+  const hPs=getTeamPlayers(hid), aPs=getTeamPlayers(aid);
+  const events=[];
+  const minutes=[...Array(40)].map((_,i)=>i+1);
+  const hg=Math.floor(Math.random()*Math.random()*(hStr/100*5));
+  const ag=Math.floor(Math.random()*Math.random()*(aStr/100*5));
 
-  // ── State ─────────────────────────────────────────
-  let activeTab  = "squad";
-  let formation  = "4-3-3";
-  let lineup     = PLAYERS.slice(0, Math.min(5, PLAYERS.length)).map(p => p.id);
-  let players    = PLAYERS.map(p => ({...p}));
-  let matchLog   = [];
-  let fixtures   = genFixtures();
+  // Generate goal events
+  const hMins=shuffle(minutes).slice(0,hg);
+  const aMins=shuffle(minutes.filter(m=>!hMins.includes(m))).slice(0,ag);
 
-  function genFixtures() {
-    const all = [MY_TEAM, ...CPU.map(t => t.name)];
-    const fx = [];
-    for (let i = 0; i < all.length; i++)
-      for (let j = 0; j < all.length; j++)
-        if (i !== j) fx.push({ home: all[i], away: all[j], played: false, hg: null, ag: null });
-    return fx;
-  }
+  hMins.sort((a,b)=>a-b).forEach(min=>{
+    const scorer=hPs.length?hPs[rnd(0,hPs.length-1)]:{name:"Unknown"};
+    const assister=hPs.filter(p=>p.id!==scorer.id);
+    const ast=assister.length?assister[rnd(0,assister.length-1)]:null;
+    events.push({min,team:hid,type:"goal",scorer:scorer.name,assist:ast?.name});
+  });
+  aMins.sort((a,b)=>a-b).forEach(min=>{
+    const scorer=aPs.length?aPs[rnd(0,aPs.length-1)]:{name:"Unknown"};
+    const assister=aPs.filter(p=>p.id!==scorer.id);
+    const ast=assister.length?assister[rnd(0,assister.length-1)]:null;
+    events.push({min,team:aid,type:"goal",scorer:scorer.name,assist:ast?.name});
+  });
+  events.sort((a,b)=>a.min-b.min);
 
-  function teamStrength() {
-    if (!lineup.length) return 60;
-    return Math.round(lineup.map(id => players.find(p => p.id === id)?.overall || 60).reduce((a,b)=>a+b,0) / lineup.length);
-  }
+  // Update player stats
+  state.players=state.players.map(p=>{
+    const ev=events.filter(e=>(e.team===p.teamId)&&(e.scorer===p.name||e.assist===p.name));
+    const g=ev.filter(e=>e.scorer===p.name).length;
+    const a=ev.filter(e=>e.assist===p.name).length;
+    const inGame=p.teamId===hid||p.teamId===aid;
+    const rat=inGame?Math.min(10,Math.max(4,+(5+g*1.5+a*0.8+(Math.random()*2-1)).toFixed(1))):p.rating;
+    return inGame?{...p,goals:p.goals+g,assists:p.assists+a,apps:p.apps+1,rating:rat,ratings:[...p.ratings,rat]}:p;
+  });
 
-  function simMatch(hStr, aStr) {
-    const r = () => Math.random();
-    const hg = Math.floor(r() * r() * ((hStr + 5) / 100 * 4.5));
-    const ag = Math.floor(r() * r() * (aStr / 100 * 4.5));
-    return { hg, ag };
-  }
+  return {hg,ag,events};
+}
 
-  function getStandings() {
-    const all = [MY_TEAM, ...CPU.map(t => t.name)];
-    const tbl = Object.fromEntries(all.map(t => [t, { name:t,p:0,w:0,d:0,l:0,gf:0,ga:0,pts:0 }]));
-    fixtures.filter(f => f.played).forEach(f => {
-      const h = tbl[f.home], a = tbl[f.away];
-      if (!h||!a) return;
-      h.p++; a.p++; h.gf+=f.hg; h.ga+=f.ag; a.gf+=f.ag; a.ga+=f.hg;
-      if (f.hg>f.ag){h.w++;h.pts+=3;a.l++;}
-      else if(f.hg<f.ag){a.w++;a.pts+=3;h.l++;}
-      else{h.d++;a.d++;h.pts++;a.pts++;}
-    });
-    return Object.values(tbl).sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga));
-  }
+// ── RENDER ────────────────────────────────────────────
+const app=()=>document.getElementById("app");
 
-  function remaining() { return fixtures.filter(f => f.home === MY_TEAM && !f.played).length; }
+function render(){
+  if(state.screen==="pick"){ app().innerHTML=renderPick(); bindPick(); return; }
+  app().innerHTML=renderMain();
+  bindMain();
+}
 
-  // ── Header update ─────────────────────────────────
-  function updateHeader() {
-    const standings = getStandings();
-    const pos = standings.findIndex(t => t.name === MY_TEAM) + 1;
-    document.getElementById("headerSub").textContent = `Strength: ${teamStrength()} · Position: ${pos}/${standings.length}`;
-    document.getElementById("headerGames").textContent = `${remaining()} games left`;
-    document.getElementById("headerForm").textContent = formation;
-  }
-
-  // ── Tabs ──────────────────────────────────────────
-  document.querySelectorAll(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-btn").forEach(b => {
-        b.classList.remove("border-b-2","border-blue-500","text-blue-400");
-        b.classList.add("text-gray-400");
-      });
-      btn.classList.add("border-b-2","border-blue-500","text-blue-400");
-      btn.classList.remove("text-gray-400");
-      activeTab = btn.dataset.tab;
+// ── TEAM PICK ─────────────────────────────────────────
+function renderPick(){
+  const cards=teams.map(t=>{
+    const ps=state.players.filter(p=>p.teamId===t.id);
+    const str=Math.round(ps.reduce((a,p)=>a+p.ovr,0)/ps.length);
+    return `<div class="card p-4 cursor-pointer hover:glow-blue transition-all pick-team" data-tid="${t.id}" style="border-color:${t.color}40">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg" style="background:${t.color}33;color:${t.color}">${t.name[0]}</div>
+        <div><div class="font-bold">${t.name}</div><div class="text-xs text-slate-400">Strength: ${str}</div></div>
+      </div>
+      <div class="flex flex-wrap gap-1">
+        ${ps.map(p=>`<span class="text-xs px-2 py-0.5 rounded-full" style="background:${t.color}22;color:${t.color}">${p.name}</span>`).join("")}
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="text-center mb-8">
+      <div class="text-4xl mb-2">⚽</div>
+      <h1 class="text-3xl font-black">VRFS Manager</h1>
+      <p class="text-slate-400 mt-1">5-a-side · Season 1</p>
+    </div>
+    <div class="w-full max-w-2xl">
+      <p class="text-center text-slate-400 mb-4 text-sm">Choose your team</p>
+      <div class="grid grid-cols-1 gap-3">${cards}</div>
+    </div>
+  </div>`;
+}
+function bindPick(){
+  document.querySelectorAll(".pick-team").forEach(el=>{
+    el.addEventListener("click",()=>{
+      state.myTeam=parseInt(el.dataset.tid);
+      state.screen="main";
       render();
     });
   });
+}
 
-  // ── Render ────────────────────────────────────────
-  function render() {
-    updateHeader();
-    const c = document.getElementById("content");
-    if (activeTab === "squad")   c.innerHTML = renderSquad();
-    if (activeTab === "tactics") c.innerHTML = renderTactics();
-    if (activeTab === "season")  c.innerHTML = renderSeason();
-    if (activeTab === "stats")   c.innerHTML = renderStats();
-    bindEvents();
-  }
+// ── MAIN UI ───────────────────────────────────────────
+function renderMain(){
+  const t=teams[state.myTeam];
+  const myPs=state.players.filter(p=>p.teamId===state.myTeam);
+  const str=Math.round(myPs.reduce((a,p)=>a+p.ovr,0)/myPs.length)||0;
+  const std=getStandings();
+  const myPos=std.findIndex(x=>x.id===state.myTeam)+1;
+  const remFx=state.fixtures.filter(f=>(f.home===state.myTeam||f.away===state.myTeam)&&!f.played).length;
 
-  function renderSquad() {
-    return `<p class="text-xs text-gray-400 mb-3">Tap a player to toggle in/out of lineup (${lineup.length} selected)</p>` +
-      players.map(p => {
-        const inL = lineup.includes(p.id);
-        return `<div class="player-toggle rounded-lg px-4 py-3 flex items-center gap-3 cursor-pointer border-2 mb-2 transition-colors ${inL?'border-blue-500 bg-gray-800':'border-transparent bg-gray-800/50'}" data-pid="${p.id}">
-          <span class="text-xs font-bold px-2 py-1 rounded ${POS_COLOR[p.position]}">${p.position}</span>
-          <div class="flex-1">
-            <div class="font-medium">${p.name}</div>
-            <div class="text-xs text-gray-400">SHO ${p.shooting} · PAS ${p.passing} · DEF ${p.defending}</div>
-          </div>
-          <div class="text-right">
-            <div class="font-bold text-lg">${p.overall}</div>
-            <div class="text-xs text-gray-500">OVR</div>
-          </div>
-        </div>`;
-      }).join("");
-  }
+  const tabs=["squad","tactics","season","cup","transfers","stats","news"];
+  const tabBtns=tabs.map(tab=>`
+    <button class="tab-btn px-3 py-2 text-xs font-medium rounded-lg whitespace-nowrap ${state.tab===tab?'text-white':'text-slate-400 hover:text-white'}" data-tab="${tab}" style="${state.tab===tab?`background:${t.color}33;color:${t.color}`:''}">${tab.charAt(0).toUpperCase()+tab.slice(1)}</button>
+  `).join("");
 
-  function renderTactics() {
-    const formations = ["4-3-3","4-4-2","3-5-2","5-3-2","4-2-3-1"];
-    const fBtns = formations.map(f =>
-      `<button class="form-btn py-2 rounded-lg text-sm font-medium border-2 ${formation===f?'border-blue-500 bg-blue-900/40 text-blue-400':'border-gray-700 bg-gray-800 text-gray-300'}" data-f="${f}">${f}</button>`
-    ).join("");
+  let content="";
+  if(state.tab==="squad")     content=renderSquad();
+  if(state.tab==="tactics")   content=renderTactics();
+  if(state.tab==="season")    content=renderSeason();
+  if(state.tab==="cup")       content=renderCup();
+  if(state.tab==="transfers") content=renderTransfers();
+  if(state.tab==="stats")     content=renderStats();
+  if(state.tab==="news")      content=renderNews();
 
-    const rows = formation.split("-").map((n, row, arr) => {
-      const label = row===0?"GK":row===arr.length-1?"FWD":row===1?"DEF":"MID";
-      const circles = Array.from({length:parseInt(n)}).map(() =>
-        `<div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold shadow">${label}</div>`
-      ).join("");
-      return `<div class="flex justify-center gap-3">${circles}</div>`;
-    }).join("");
-
-    const lineupNames = lineup.map(id => {
-      const p = players.find(x => x.id === id);
-      return p ? `<span class="text-xs bg-gray-700 px-2 py-1 rounded">${p.name}</span>` : "";
-    }).join("");
-
-    return `
-      <div class="space-y-4">
+  return `
+  <div class="flex flex-col min-h-screen">
+    <!-- Header -->
+    <div class="px-4 py-3 flex items-center justify-between" style="background:${t.color}22;border-bottom:1px solid ${t.color}44">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center font-black text-xl" style="background:${t.color};color:white">${t.name[0]}</div>
         <div>
-          <p class="text-sm text-gray-400 mb-2">Formation</p>
-          <div class="grid grid-cols-3 gap-2">${fBtns}</div>
+          <div class="font-bold">${t.name}</div>
+          <div class="text-xs text-slate-400">STR ${str} · ${myPos}/${teams.length} · £${t.funds.toLocaleString()}</div>
         </div>
-        <div class="bg-green-900/40 border border-green-700 rounded-xl p-4 text-center">
-          <div class="text-xs text-green-400 mb-3 font-medium uppercase">Pitch View · ${formation}</div>
-          <div class="space-y-3">${rows}</div>
+      </div>
+      <div class="text-right">
+        <div class="text-sm font-bold">${remFx} left</div>
+        <div class="text-xs text-slate-400">${t.formation}</div>
+      </div>
+    </div>
+    <!-- Tabs -->
+    <div class="flex gap-1 px-3 py-2 overflow-x-auto border-b border-slate-800">${tabBtns}</div>
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">${content}</div>
+  </div>`;
+}
+
+// ── SQUAD ─────────────────────────────────────────────
+function renderSquad(){
+  const t=teams[state.myTeam];
+  const myPs=state.players.filter(p=>p.teamId===state.myTeam).sort((a,b)=>b.ovr-a.ovr);
+  return `<div class="space-y-2">
+    ${myPs.map(p=>{
+      const avgRat=p.ratings.length?(p.ratings.reduce((a,b)=>a+b,0)/p.ratings.length).toFixed(1):"—";
+      const moraleColor=p.morale>70?"text-green-400":p.morale>50?"text-yellow-400":"text-red-400";
+      const posColor={GK:"#f59e0b",DEF:"#3b82f6",MID:"#10b981",FWD:"#ef4444"}[p.pos]||"#94a3b8";
+      return `<div class="card p-3 flex items-center gap-3 player-pill">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background:${posColor}22;color:${posColor}">${p.pos}</div>
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold truncate">${p.name}${p.transferListed?'<span class="ml-2 text-xs text-red-400">Listed</span>':''}</div>
+          <div class="text-xs text-slate-400">SHO ${p.sho} · PAS ${p.pas} · DEF ${p.def}</div>
+          <div class="flex gap-2 mt-1">
+            <div class="h-1 flex-1 bg-slate-700 rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:${p.sho}%;background:${t.color}"></div></div>
+            <div class="h-1 flex-1 bg-slate-700 rounded-full overflow-hidden"><div class="h-full rounded-full bg-green-500" style="width:${p.pas}%"></div></div>
+            <div class="h-1 flex-1 bg-slate-700 rounded-full overflow-hidden"><div class="h-full rounded-full bg-blue-500" style="width:${p.def}%"></div></div>
+          </div>
         </div>
-        <div class="bg-gray-800 rounded-lg p-3">
-          <p class="text-xs text-gray-400 mb-2">Current Lineup (${lineup.length} players)</p>
-          <div class="flex flex-wrap gap-2">${lineupNames || '<span class="text-xs text-gray-500">No players selected</span>'}</div>
+        <div class="text-right shrink-0">
+          <div class="text-2xl font-black">${p.ovr}</div>
+          <div class="text-xs ${moraleColor}">♥ ${p.morale}</div>
+          <div class="text-xs text-slate-400">⭐ ${avgRat}</div>
         </div>
       </div>`;
-  }
+    }).join("")}
+  </div>`;
+}
 
-  function renderSeason() {
-    const standings = getStandings();
-    const rows = standings.map((t, i) => `
-      <tr class="border-b border-gray-800 ${t.name===MY_TEAM?'bg-blue-900/20':''}">
-        <td class="py-2 text-gray-400 text-xs">${i+1}</td>
-        <td class="py-2 font-medium text-sm">${t.name}${t.name===MY_TEAM?' 🎮':''}</td>
-        <td class="py-2 text-center text-gray-300 text-sm">${t.p}</td>
-        <td class="py-2 text-center text-green-400 text-sm">${t.w}</td>
-        <td class="py-2 text-center text-yellow-400 text-sm">${t.d}</td>
-        <td class="py-2 text-center text-red-400 text-sm">${t.l}</td>
-        <td class="py-2 text-center text-sm ${t.gf-t.ga>0?'text-green-400':t.gf-t.ga<0?'text-red-400':'text-gray-400'}">${t.gf-t.ga>0?'+':''}${t.gf-t.ga}</td>
-        <td class="py-2 text-center font-bold text-sm">${t.pts}</td>
-      </tr>`).join("");
+// ── TACTICS ───────────────────────────────────────────
+function renderTactics(){
+  const t=teams[state.myTeam];
+  const myPs=state.players.filter(p=>p.teamId===state.myTeam);
+  const fBtns=FORMATIONS_5.map(f=>`
+    <button class="form-btn py-2 px-3 rounded-lg text-sm font-medium border transition-all ${t.formation===f?'text-white':'border-slate-700 text-slate-400'}" data-f="${f}" style="${t.formation===f?`background:${t.color};border-color:${t.color}`:''}">
+      ${f}
+    </button>`).join("");
 
-    const log = matchLog.length
-      ? `<div class="bg-gray-800 rounded-lg p-3 space-y-1 mt-4">
-           <p class="text-xs text-gray-400 uppercase font-medium mb-2">Recent Results</p>
-           ${matchLog.map(l=>`<p class="text-sm">${l}</p>`).join("")}
-         </div>` : "";
+  const rows=t.formation.split("-").map((n,i,arr)=>{
+    const label=i===0?"GK":i===arr.length-1?"FWD":i===1?"DEF":"MID";
+    const circles=Array.from({length:parseInt(n)}).map(()=>`
+      <div class="w-12 h-12 rounded-full flex items-center justify-center text-xs font-bold shadow-lg border-2 border-white/20" style="background:${t.color}">${label}</div>
+    `).join("");
+    return `<div class="flex justify-center gap-4">${circles}</div>`;
+  }).join("");
 
-    const rem = remaining();
-    return `
-      <div class="overflow-x-auto mb-4">
-        <table class="w-full text-sm">
-          <thead><tr class="text-gray-400 text-xs uppercase border-b border-gray-700">
-            <th class="py-2 text-left">#</th><th class="py-2 text-left">Team</th>
-            <th class="py-2 text-center">P</th><th class="py-2 text-center">W</th>
-            <th class="py-2 text-center">D</th><th class="py-2 text-center">L</th>
-            <th class="py-2 text-center">GD</th><th class="py-2 text-center font-bold text-white">Pts</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+  return `<div class="space-y-4">
+    <div>
+      <p class="text-xs text-slate-400 uppercase font-semibold mb-2">Formation</p>
+      <div class="flex gap-2 flex-wrap">${fBtns}</div>
+    </div>
+    <div class="pitch-bg rounded-xl p-6 shadow-inner">
+      <div class="space-y-4">${rows}</div>
+    </div>
+    <div class="card p-3">
+      <p class="text-xs text-slate-400 uppercase font-semibold mb-2">Your Squad</p>
+      <div class="flex flex-wrap gap-2">
+        ${myPs.map(p=>`<span class="text-xs px-2 py-1 rounded-full" style="background:${t.color}22;color:${t.color}">${p.name} (${p.pos})</span>`).join("")}
       </div>
-      <div class="flex gap-2">
-        <button id="btnNext" ${rem===0?'disabled':''} class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg py-3 font-medium text-sm">▶ Play Next Game</button>
-        <button id="btnAll"  ${rem===0?'disabled':''} class="flex-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 rounded-lg py-3 font-medium text-sm">⏩ Sim Rest</button>
+    </div>
+  </div>`;
+}
+
+// ── SEASON ────────────────────────────────────────────
+function getStandings(){
+  return [...teams].map(t=>{
+    const played=state.fixtures.filter(f=>f.played&&(f.home===t.id||f.away===t.id));
+    let w=0,d=0,l=0,gf=0,ga=0;
+    played.forEach(f=>{
+      const isHome=f.home===t.id;
+      const tg=isHome?f.hg:f.ag, og=isHome?f.ag:f.hg;
+      gf+=tg; ga+=og;
+      if(tg>og)w++; else if(tg<og)l++; else d++;
+    });
+    return {...t,p:played.length,w,d,l,gf,ga,pts:w*3+d,gd:gf-ga};
+  }).sort((a,b)=>b.pts-a.pts||b.gd-a.gd);
+}
+
+function renderSeason(){
+  const std=getStandings();
+  const myT=teams[state.myTeam];
+  const next=state.fixtures.find(f=>(f.home===state.myTeam||f.away===state.myTeam)&&!f.played);
+  const nextTeamId=next?(next.home===state.myTeam?next.away:next.home):null;
+  const nextTeam=nextTeamId!==null?teams[nextTeamId]:null;
+
+  const tableRows=std.map((t,i)=>`
+    <tr class="${t.id===state.myTeam?'font-bold':''}" style="${t.id===state.myTeam?`color:${t.color}`:''} ">
+      <td class="py-2 px-2 text-center">${i+1}</td>
+      <td class="py-2 px-2">${t.name}${t.id===state.myTeam?' 🎮':''}</td>
+      <td class="py-2 px-2 text-center text-slate-400">${t.p}</td>
+      <td class="py-2 px-2 text-center text-green-400">${t.w}</td>
+      <td class="py-2 px-2 text-center text-yellow-400">${t.d}</td>
+      <td class="py-2 px-2 text-center text-red-400">${t.l}</td>
+      <td class="py-2 px-2 text-center ${t.gd>0?'text-green-400':t.gd<0?'text-red-400':'text-slate-400'}">${t.gd>0?'+':''}${t.gd}</td>
+      <td class="py-2 px-2 text-center font-bold">${t.pts}</td>
+    </tr>`).join("");
+
+  const recentMy=state.matchLog.slice(0,5);
+
+  return `<div class="space-y-4">
+    ${nextTeam?`<div class="card p-4" style="border-color:${myT.color}44">
+      <p class="text-xs text-slate-400 uppercase font-semibold mb-2">Next Match</p>
+      <div class="flex items-center justify-between">
+        <div class="text-center flex-1">
+          <div class="font-bold">${myT.name}</div>
+          <div class="text-xs text-slate-400">STR ${teamStr(state.myTeam)}</div>
+        </div>
+        <div class="text-slate-500 font-bold mx-4">vs</div>
+        <div class="text-center flex-1">
+          <div class="font-bold">${nextTeam.name}</div>
+          <div class="text-xs text-slate-400">STR ${teamStr(nextTeamId)}</div>
+        </div>
       </div>
-      ${log}`;
-  }
+      <div class="flex gap-2 mt-3">
+        <button id="btnNext" class="flex-1 py-2 rounded-lg font-bold text-sm text-white" style="background:${myT.color}">▶ Play Match</button>
+        <button id="btnAll" class="flex-1 py-2 rounded-lg font-bold text-sm bg-slate-700 text-white">⏩ Sim All</button>
+      </div>
+    </div>`:`<div class="card p-4 text-center text-slate-400">Season complete! 🏆</div>`}
 
-  function renderStats() {
-    return `<p class="text-xs text-gray-400 mb-3">Player statistics this season</p>` +
-      [...players].sort((a,b)=>b.goals-a.goals).map(p => `
-        <div class="bg-gray-800 rounded-lg px-4 py-3 flex items-center gap-3 mb-2">
-          <span class="text-xs font-bold px-2 py-1 rounded shrink-0 ${POS_COLOR[p.position]}">${p.position}</span>
-          <div class="flex-1 min-w-0">
-            <div class="font-medium text-sm">${p.name}</div>
-            <div class="text-xs text-gray-400">${p.appearances} apps</div>
+    <div class="card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead><tr class="text-slate-400 text-xs uppercase border-b border-slate-700">
+          <th class="py-2 px-2">#</th><th class="py-2 px-2 text-left">Team</th>
+          <th class="py-2 px-2">P</th><th class="py-2 px-2">W</th><th class="py-2 px-2">D</th>
+          <th class="py-2 px-2">L</th><th class="py-2 px-2">GD</th><th class="py-2 px-2">Pts</th>
+        </tr></thead>
+        <tbody class="divide-y divide-slate-800">${tableRows}</tbody>
+      </table>
+    </div>
+
+    ${recentMy.length?`<div class="card p-3">
+      <p class="text-xs text-slate-400 uppercase font-semibold mb-2">Recent Results</p>
+      ${recentMy.map(l=>`<p class="text-sm py-1 border-b border-slate-800 last:border-0">${l}</p>`).join("")}
+    </div>`:""}
+  </div>`;
+}
+
+// ── CUP ───────────────────────────────────────────────
+function renderCup(){
+  const myT=teams[state.myTeam];
+  return `<div class="space-y-3">
+    <p class="text-xs text-slate-400 uppercase font-semibold">VRFS Cup</p>
+    ${state.cup.map((m,i)=>{
+      const h=teams[m.home],a=teams[m.away];
+      const isMyMatch=m.home===state.myTeam||m.away===state.myTeam;
+      return `<div class="card p-4 ${isMyMatch?'glow-blue':''}">
+        <p class="text-xs text-slate-500 mb-2">${m.r}</p>
+        <div class="flex items-center justify-between">
+          <div class="text-center flex-1"><div class="font-bold text-sm" style="${m.home===state.myTeam?`color:${myT.color}`:''}">
+            ${h.name}${m.winner===m.home?' 🏆':''}</div></div>
+          <div class="mx-3 font-bold text-lg">${m.played?`${m.hg} – ${m.ag}`:'vs'}</div>
+          <div class="text-center flex-1"><div class="font-bold text-sm" style="${m.away===state.myTeam?`color:${myT.color}`:''}">
+            ${a.name}${m.winner===m.away?' 🏆':''}</div></div>
+        </div>
+        ${!m.played&&isMyMatch?`<button class="cup-play w-full mt-3 py-2 rounded-lg font-bold text-sm text-white" data-ci="${i}" style="background:${myT.color}">▶ Play Cup Match</button>`:''}
+        ${!m.played&&!isMyMatch?`<button class="cup-sim w-full mt-3 py-2 rounded-lg font-bold text-sm bg-slate-700" data-ci="${i}">⏩ Simulate</button>`:''}
+      </div>`;
+    }).join("")}
+    ${state.cup.every(m=>m.played)?`<div class="card p-4 text-center">
+      <div class="text-3xl mb-2">🏆</div>
+      <p class="font-bold">Cup Complete!</p>
+      <p class="text-slate-400 text-sm">Winner: ${teams[state.cup.find(m=>m.r==="Final")?.winner??state.cup[0].winner??0]?.name||"TBD"}</p>
+    </div>`:""}
+  </div>`;
+}
+
+// ── TRANSFERS ─────────────────────────────────────────
+function renderTransfers(){
+  const myT=teams[state.myTeam];
+  const listed=state.players.filter(p=>p.transferListed&&p.teamId!==state.myTeam);
+  const myListed=state.players.filter(p=>p.teamId===state.myTeam);
+
+  return `<div class="space-y-4">
+    <div class="card p-3">
+      <p class="text-xs text-slate-400 uppercase font-semibold mb-2">Transfer Budget: £${myT.funds.toLocaleString()}</p>
+      <p class="text-xs text-slate-500">Buy players from other teams or list your own for sale.</p>
+    </div>
+
+    <div>
+      <p class="text-xs text-slate-400 uppercase font-semibold mb-2">Available Players</p>
+      ${listed.length?listed.map(p=>{
+        const price=p.ovr*rnd(800,1200);
+        return `<div class="card p-3 flex items-center gap-3 mb-2">
+          <div class="flex-1">
+            <div class="font-semibold">${p.name} <span class="text-xs text-slate-500">${teams[p.teamId].name}</span></div>
+            <div class="text-xs text-slate-400">${p.pos} · OVR ${p.ovr} · SHO ${p.sho} PAS ${p.pas} DEF ${p.def}</div>
           </div>
-          <div class="flex gap-4 text-sm">
-            <div class="text-center"><div class="text-green-400 font-bold">${p.goals}</div><div class="text-xs text-gray-500">G</div></div>
-            <div class="text-center"><div class="text-blue-400 font-bold">${p.assists}</div><div class="text-xs text-gray-500">A</div></div>
+          <div class="text-right">
+            <div class="text-xs text-green-400 font-bold">£${price.toLocaleString()}</div>
+            <button class="buy-btn mt-1 text-xs px-3 py-1 rounded-lg text-white font-medium" data-pid="${p.id}" data-price="${price}" style="background:${myT.color}">Buy</button>
           </div>
-        </div>`).join("");
-  }
+        </div>`;
+      }).join(""):`<p class="text-slate-500 text-sm">No players listed yet.</p>`}
+    </div>
 
-  // ── Event binding ─────────────────────────────────
-  function bindEvents() {
-    document.querySelectorAll(".player-toggle").forEach(el => {
-      el.addEventListener("click", () => {
-        const id = parseInt(el.dataset.pid);
-        lineup = lineup.includes(id) ? lineup.filter(x=>x!==id) : [...lineup, id];
-        render();
-      });
+    <div>
+      <p class="text-xs text-slate-400 uppercase font-semibold mb-2">Your Squad — List for Sale</p>
+      ${myListed.map(p=>`
+        <div class="card p-3 flex items-center gap-3 mb-2">
+          <div class="flex-1">
+            <div class="font-semibold">${p.name}</div>
+            <div class="text-xs text-slate-400">${p.pos} · OVR ${p.ovr}</div>
+          </div>
+          <button class="list-btn text-xs px-3 py-1 rounded-lg font-medium border ${p.transferListed?'border-red-500 text-red-400':'border-slate-600 text-slate-400'}" data-pid="${p.id}">
+            ${p.transferListed?'Unlist':'List'}
+          </button>
+        </div>`).join("")}
+    </div>
+  </div>`;
+}
+
+// ── STATS ─────────────────────────────────────────────
+function renderStats(){
+  const sorted=[...state.players].sort((a,b)=>b.goals-a.goals);
+  return `<div class="space-y-2">
+    <p class="text-xs text-slate-400 uppercase font-semibold mb-2">Top Scorers — All Teams</p>
+    ${sorted.map((p,i)=>{
+      const t=teams[p.teamId];
+      const avgRat=p.ratings.length?(p.ratings.reduce((a,b)=>a+b,0)/p.ratings.length).toFixed(1):"—";
+      return `<div class="card p-3 flex items-center gap-3">
+        <span class="text-slate-500 text-sm w-5 text-center">${i+1}</span>
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background:${t.color}33;color:${t.color}">${p.name[0]}</div>
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-sm truncate">${p.name}</div>
+          <div class="text-xs" style="color:${t.color}">${t.name}</div>
+        </div>
+        <div class="flex gap-3 text-sm shrink-0">
+          <div class="text-center"><div class="text-green-400 font-bold">${p.goals}</div><div class="text-xs text-slate-500">G</div></div>
+          <div class="text-center"><div class="text-blue-400 font-bold">${p.assists}</div><div class="text-xs text-slate-500">A</div></div>
+          <div class="text-center"><div class="text-yellow-400 font-bold">${avgRat}</div><div class="text-xs text-slate-500">Rat</div></div>
+          <div class="text-center"><div class="text-slate-300 font-bold">${p.apps}</div><div class="text-xs text-slate-500">App</div></div>
+        </div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+
+// ── NEWS ──────────────────────────────────────────────
+function renderNews(){
+  return `<div class="space-y-2">
+    <p class="text-xs text-slate-400 uppercase font-semibold mb-2">News & Updates</p>
+    ${state.news.map((n,i)=>`
+      <div class="card p-3 flex gap-3">
+        <span class="text-lg">${i===0?'🔴':'📰'}</span>
+        <p class="text-sm">${n}</p>
+      </div>`).join("")}
+  </div>`;
+}
+
+// ── BIND ──────────────────────────────────────────────
+function bindMain(){
+  document.querySelectorAll(".tab-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.tab=btn.dataset.tab; render(); });
+  });
+  document.querySelectorAll(".form-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{ teams[state.myTeam].formation=btn.dataset.f; render(); });
+  });
+
+  const btnNext=document.getElementById("btnNext");
+  if(btnNext) btnNext.addEventListener("click",()=>{ playNext(); render(); });
+
+  const btnAll=document.getElementById("btnAll");
+  if(btnAll) btnAll.addEventListener("click",()=>{ simAll(); render(); });
+
+  document.querySelectorAll(".cup-play").forEach(btn=>{
+    btn.addEventListener("click",()=>{ playCup(parseInt(btn.dataset.ci)); render(); });
+  });
+  document.querySelectorAll(".cup-sim").forEach(btn=>{
+    btn.addEventListener("click",()=>{ playCup(parseInt(btn.dataset.ci)); render(); });
+  });
+  document.querySelectorAll(".buy-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{ buyPlayer(parseInt(btn.dataset.pid),parseInt(btn.dataset.price)); render(); });
+  });
+  document.querySelectorAll(".list-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const pid=parseInt(btn.dataset.pid);
+      state.players=state.players.map(p=>p.id===pid?{...p,transferListed:!p.transferListed}:p);
+      render();
     });
+  });
+}
 
-    document.querySelectorAll(".form-btn").forEach(btn => {
-      btn.addEventListener("click", () => { formation = btn.dataset.f; render(); });
-    });
+function playNext(){
+  const next=state.fixtures.find(f=>(f.home===state.myTeam||f.away===state.myTeam)&&!f.played);
+  if(!next) return;
+  const {hg,ag,events}=simFull(next.home,next.away);
+  next.played=true; next.hg=hg; next.ag=ag; next.events=events;
+  const hT=teams[next.home],aT=teams[next.away];
+  const result=`${hT.name} ${hg} – ${ag} ${aT.name}`;
+  const evLines=events.map(e=>`${commentary(e.scorer,teams[e.team].name,e.min)}${e.assist?` (assist: ${e.assist})`:''}`);
+  state.matchLog=[result,...evLines,...state.matchLog].slice(0,30);
+  state.news=[`📊 Result: ${result}`,...state.news].slice(0,20);
+}
 
-    const btnNext = document.getElementById("btnNext");
-    if (btnNext) btnNext.addEventListener("click", playNext);
+function simAll(){
+  state.fixtures.forEach(f=>{ if(!f.played){ const {hg,ag}=simFull(f.home,f.away); f.played=true;f.hg=hg;f.ag=ag; } });
+  state.news=["⏩ All remaining fixtures simulated!",...state.news].slice(0,20);
+}
 
-    const btnAll = document.getElementById("btnAll");
-    if (btnAll) btnAll.addEventListener("click", playAll);
-  }
+function playCup(i){
+  const m=state.cup[i];
+  if(m.played) return;
+  const {hg,ag}=simFull(m.home,m.away);
+  m.played=true; m.hg=hg; m.ag=ag;
+  m.winner=hg>=ag?m.home:m.away;
+  const result=`🏆 Cup: ${teams[m.home].name} ${hg} – ${ag} ${teams[m.away].name}`;
+  state.news=[result,...state.news].slice(0,20);
+  state.matchLog=[result,...state.matchLog].slice(0,30);
+}
 
-  function playNext() {
-    const next = fixtures.find(f => f.home === MY_TEAM && !f.played);
-    if (!next) return;
-    const cpuStr = CPU.find(t => t.name === next.away)?.strength || 65;
-    const { hg, ag } = simMatch(teamStrength(), cpuStr);
+function buyPlayer(pid,price){
+  const myT=teams[state.myTeam];
+  if(myT.funds<price){ state.news=[`❌ Not enough funds to buy player!`,...state.news]; return; }
+  const p=state.players.find(x=>x.id===pid);
+  if(!p) return;
+  myT.funds-=price;
+  teams[p.teamId].funds+=price;
+  state.news=[`✅ Signed ${p.name} for £${price.toLocaleString()}!`,...state.news].slice(0,20);
+  state.players=state.players.map(x=>x.id===pid?{...x,teamId:state.myTeam,transferListed:false}:x);
+}
 
-    const outfield = lineup.map(id => players.find(p => p.id === id)).filter(Boolean);
-    let g = hg;
-    while (g-- > 0 && outfield.length) {
-      const s = outfield[Math.floor(Math.random()*outfield.length)];
-      players.find(p=>p.id===s.id).goals++;
-      if (outfield.length > 1) {
-        const others = outfield.filter(p=>p.id!==s.id);
-        players.find(p=>p.id===others[Math.floor(Math.random()*others.length)].id).assists++;
-      }
-    }
-    outfield.forEach(p => players.find(x=>x.id===p.id).appearances++);
-
-    fixtures.find(f=>f===next).played = true;
-    fixtures.find(f=>f===next).hg = hg;
-    fixtures.find(f=>f===next).ag = ag;
-    matchLog = [`⚽ ${next.home} ${hg} – ${ag} ${next.away}`, ...matchLog].slice(0,20);
-    render();
-  }
-
-  function playAll() {
-    fixtures = fixtures.map(f => {
-      if (f.played) return f;
-      let hStr, aStr;
-      if (f.home===MY_TEAM){hStr=teamStrength();aStr=CPU.find(t=>t.name===f.away)?.strength||65;}
-      else if(f.away===MY_TEAM){hStr=CPU.find(t=>t.name===f.home)?.strength||65;aStr=teamStrength();}
-      else{hStr=CPU.find(t=>t.name===f.home)?.strength||65;aStr=CPU.find(t=>t.name===f.away)?.strength||65;}
-      const {hg,ag} = simMatch(hStr,aStr);
-      return {...f,played:true,hg,ag};
-    });
-    render();
-  }
-
-  render();
-  </script>
+render();
+</script>
 </body>
 </html>
